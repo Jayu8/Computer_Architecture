@@ -23,13 +23,16 @@ class RF
     	{ 
           Registers.resize(32);  
           Registers[0] = bitset<32> (0);  
+          ///////////////////////*****///
+        // Registers[1] = bitset<32> (0);
+          //Registers[2] = bitset<32> (10);
         }
 	
     void ReadWrite(bitset<5> RdReg1, bitset<5> RdReg2, bitset<5> WrtReg, bitset<32> WrtData, bitset<1> WrtEnable)
         {   
             
-            bitset<32> Rd1val;
-            bitset<32> Rd2val;
+            //bitset<32> Rd1val;
+            //bitset<32> Rd2val;
 
 
             // What happens when we send zero as just a variablr , is there ever a zero in PIPELINE??
@@ -37,6 +40,7 @@ class RF
            	if (WrtEnable == 1)
         	{
         		Registers[WrtReg.to_ulong()] = WrtData;
+        		//cout<<WrtData;
         	}
   
 	       	Rd1val	= Registers[RdReg1.to_ulong()];
@@ -233,7 +237,6 @@ void dumpResults(bitset<32> pc, bitset<5> WrRFAdd, bitset<32> WrRFData, bitset<1
    
 int main()
 {      
-	
     bitset<32> PC = bitset<32> (0);
     bitset<32> Instruction;
     bitset<6> OPCODE;
@@ -241,7 +244,7 @@ int main()
     bitset<32> ALUresult;
     bitset<32> Dmem_Load_Value; 
 
-    bitset<32> SignExtImm = bitset<32> (0); //error debug
+    //bitset<32> SignExtImm = bitset<32> (0); //error debug
 
     RF myRF;
     ALU myALU;
@@ -250,7 +253,7 @@ int main()
 
     while (1) //each loop body corresponds to one clock cycle.
 	{
-    	//cout <<  "PC value is "<< PC.to_ulong() << "\n";  
+    	cout <<  "PC value is "<< PC.to_ulong() << "\n";  
 
     	/****** Instruction fetfch stage **********/  
 		Instruction = myInsMem.ReadMemory( PC.to_ulong() )	;
@@ -268,7 +271,9 @@ int main()
             cout << " Rs is " << Rs << " Rt is " << Rt << " Rd is "<< Rd << " funct is "<< funct<<"\n";
             
             myRF.ReadWrite(Rs, Rt, Rd, 0, 0); // Register addresses
-
+            ALUresult= myALU.ALUOperation(bitset<3>(funct.to_string().substr(3,3)), myRF.Rd1val,myRF.Rd2val);
+            cout<< ALUresult<<"\n "<< myRF.Rd1val<< "\n "<< myRF.Rd2val<<"\n ";
+            myRF.ReadWrite(0,0,Rd,ALUresult,1);
 
 
 
@@ -291,13 +296,16 @@ int main()
 				Address_new = Address_new | PC_MSB_4; 
 
 				PC = Address_new; 
+
+				cout << "\nPC is" << PC <<"\n";
+
 				continue;
 
 			}
 			else if (OPCODE == 0b111111)
 			{
 				cout <<  "Instructions complete \n";
-				exit(0);
+				break;
 			}
 		}
 			
@@ -307,7 +315,7 @@ int main()
 			bitset<5> Rs = bitset<5>(conv_bit_to_string.substr(6,5));
 			bitset<5> Rt = bitset<5>(conv_bit_to_string.substr(11,5));
 			bitset<16> Immediate = bitset<16>(conv_bit_to_string.substr(16,16));
-			//bitset<32> SignExtImm = bitset<32> (0); 
+			bitset<32> SignExtImm = bitset<32> (0); 
 
 
 
@@ -319,18 +327,22 @@ int main()
 				cout << "LOAD_INSTRUCTION" << "\n";
 
 				myRF.ReadWrite(Rs,0,0,0,0); // we are doing this to get Rd1val, WRONG
-				bitset<32>Immediate = bitset<32>(Immediate);
-				SignExtImm = bitset<32>(SignExtImm | Immediate);	
+				bitset<32>Immediateval = bitset<32>(Immediate.to_ulong()|0x00);
+				SignExtImm = bitset<32>(SignExtImm | Immediateval);	
 				if(Immediate.to_string().substr(0,1) == "1")
 				{
-					SignExtImm = (SignExtImm.to_ulong() | 0b11111111111111110000000000000000); 
+					SignExtImm = (SignExtImm.to_ulong() | 0b11111111111111110000000000000000);
+
 				}
 					
 				ALUresult = myALU.ALUOperation(0b001,myRF.Rd1val,SignExtImm);
 
+
 				Dmem_Load_Value = myDataMem.MemoryAccess(ALUresult,0,1,0); // dont know
 
 				myRF.ReadWrite(0,0,Rt,Dmem_Load_Value,1);
+				cout<<"  Wrtdata\nThe Load parameteres \n";
+				cout<<"\n"<<ALUresult<<"\n"<<Dmem_Load_Value<<"\n"<<SignExtImm<<"\n";
 				//complete
 
 			}
@@ -340,8 +352,10 @@ int main()
 
 				myRF.ReadWrite(Rs,Rt,0,0,0);
 
-				bitset<32>Immediate = bitset<32>(Immediate);
-				SignExtImm = bitset<32>(SignExtImm | Immediate);	
+				bitset<32>Immediateval = bitset<32>(Immediate.to_ulong()|0x00);
+
+				SignExtImm = bitset<32>(SignExtImm | Immediateval);	
+
 				if(Immediate.to_string().substr(0,1)=="1")
 				{
 					SignExtImm = (SignExtImm.to_ulong() | 0b11111111111111110000000000000000); 
@@ -349,8 +363,9 @@ int main()
 
 				ALUresult = myALU.ALUOperation(0b001,myRF.Rd1val,SignExtImm);
 
-				Dmem_Load_Value = myDataMem.MemoryAccess(ALUresult,myRF.Rd1val,0,1); // Dmem_Load_Value IS not present
 
+				Dmem_Load_Value = myDataMem.MemoryAccess(ALUresult,myRF.Rd2val,0,1); // Dmem_Load_Value IS not present
+				cout<<"\n"<<ALUresult<<"\n"<<Dmem_Load_Value<<"\n"<<SignExtImm<<"\n";
 			} 
 			else if (OPCODE == 0b000100)
 			{
@@ -363,8 +378,8 @@ int main()
 				if (myRF.Rd1val == myRF.Rd2val)
 				{
 					
-					bitset<32>Immediate = bitset<32>(Immediate);
-				    SignExtImm = bitset<32>(SignExtImm | Immediate);
+					bitset<32>Immediateval = bitset<32>(Immediate.to_ulong()|0x00);
+					SignExtImm = bitset<32>(SignExtImm | Immediateval);
 					if(Immediate.to_string().substr(0,1)=="1")
 					{
 						SignExtImm = (SignExtImm.to_ulong() | 0b11111111111111110000000000000000); 
@@ -382,8 +397,8 @@ int main()
 
 				myRF.ReadWrite(Rs, Rt, 0, 0, 0); // WRONG we do this to get Rd1val and RD2val
 
-				bitset<32>Immediate = bitset<32>(Immediate);
-				SignExtImm = bitset<32>(SignExtImm | Immediate);	
+				bitset<32>Immediateval = bitset<32>(Immediate.to_ulong()|0x00);
+				SignExtImm = bitset<32>(SignExtImm | Immediateval);
 				if(Immediate.to_string().substr(0,1)=="1")
 				{
 					SignExtImm = (SignExtImm.to_ulong() | 0b11111111111111110000000000000000); 
@@ -402,13 +417,17 @@ int main()
 	 
 	
     // At the end of each cycle, fill in the corresponding data into "dumpResults" function to output files.
-    // dumpResults(pc, , , , , , );      
+   //  dumpResults(pc, , , , , , );      
     
-    	PC = bitset<32> (PC.to_ulong() + 4);    
+    	PC = bitset<32> (PC.to_ulong() + 4); 
+    	//cout<<"Hello";   
+   
+
     }
-	      //myRF.OutputRF(); // dump RF; 
-          //myDataMem.OutputDataMem(); // dump data mem
-      
+	      myRF.OutputRF(); // dump RF; 
+          //cout<<"PRinting";
+          myDataMem.OutputDataMem(); // dump data mem
+      	  
           return 0;
         
 }
