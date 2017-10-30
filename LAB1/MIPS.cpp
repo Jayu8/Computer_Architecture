@@ -23,20 +23,10 @@ class RF
     	{ 
           Registers.resize(32);  
           Registers[0] = bitset<32> (0);  
-          ///////////////////////*****///
-        // Registers[1] = bitset<32> (0);
-          //Registers[2] = bitset<32> (10);
         }
 	
     void ReadWrite(bitset<5> RdReg1, bitset<5> RdReg2, bitset<5> WrtReg, bitset<32> WrtData, bitset<1> WrtEnable)
         {   
-            
-            //bitset<32> Rd1val;
-            //bitset<32> Rd2val;
-
-
-            // What happens when we send zero as just a variablr , is there ever a zero in PIPELINE??
-
            	if (WrtEnable == 1)
         	{
         		Registers[WrtReg.to_ulong()] = WrtData;
@@ -45,10 +35,7 @@ class RF
   
 	       	Rd1val	= Registers[RdReg1.to_ulong()];
          	Rd2val	= Registers[RdReg2.to_ulong()];
-        	
-        	
         	//return Rd1val,Rd2val;
-
          }
 		 
 	void OutputRF()
@@ -133,19 +120,12 @@ class INSMem
                   
           bitset<32> ReadMemory (bitset<32> ReadAddress) 
               {    
-
-               // implement by you. (Read the byte at the ReadAddress and the following three byte).
-
               	Instruction = bitset<32> (0);
-
               	for (int i=3;i>=0;i--)
               	{
               	  Instruction_byte = bitset<32> ( IMem[ ReadAddress.to_ulong() + (3-i) ].to_ulong() );
-  				  Instruction = Instruction_byte.to_ulong() << (8*i) | Instruction.to_ulong() ; 
-  				  
+  				        Instruction = Instruction_byte.to_ulong() << (8*i) | Instruction.to_ulong() ; 
               	}
-              
-
                return Instruction;     
               }     
       
@@ -179,20 +159,21 @@ class DataMem
           }  
           bitset<32> MemoryAccess (bitset<32> Address, bitset<32> WriteData, bitset<1> readmem, bitset<1> writemem) 
           {    
+               int index = Address.to_ulong();
+          	   if (writemem == 1)
+          	   {
+          	
+	                DMem[index]   = bitset<8> (WriteData.to_string().substr(0,8)); 
+	                DMem[index+1] = bitset<8> (WriteData.to_string().substr(8,8));
+	                DMem[index+2] = bitset<8> (WriteData.to_string().substr(16,8));
+	                DMem[index+3] = bitset<8> (WriteData.to_string().substr(24,8));
+	           }
+          	   else if (readmem == 1)
+          	   {
+               		readdata = bitset<32>((DMem[index].to_ulong()) << 24 | (DMem[index+1].to_ulong()) << 16 | (DMem[index+2].to_ulong()) << 8 | (DMem[index+3].to_ulong())); 
+               }
                
-               // implement by you.
 
-          	// TO - DO
-          	   if (readmem == 1){
-               readdata = bitset<32>((DMem[Address.to_ulong()].to_ulong()) << 24 | (DMem[Address.to_ulong()+1].to_ulong()) << 16 | (DMem[Address.to_ulong()+2].to_ulong()) << 8 | (DMem[Address.to_ulong()+3].to_ulong())); 
-               }
-               
-               else if (writemem == 1){
-                (DMem[Address.to_ulong()]) = bitset<8> (WriteData.to_string().substr(0,8)); 
-                (DMem[Address.to_ulong()+1]) = bitset<8> (WriteData.to_string().substr(8,8));
-                (DMem[Address.to_ulong()+2]) = bitset<8> (WriteData.to_string().substr(16,8));
-                (DMem[Address.to_ulong()+3]) = bitset<8> (WriteData.to_string().substr(24,8));
-               }
                return readdata;         
           }   
                      
@@ -237,12 +218,28 @@ void dumpResults(bitset<32> pc, bitset<5> WrRFAdd, bitset<32> WrRFData, bitset<1
    
 int main()
 {      
+	
     bitset<32> PC = bitset<32> (0);
     bitset<32> Instruction;
     bitset<6> OPCODE;
     string conv_bit_to_string;
     bitset<32> ALUresult;
     bitset<32> Dmem_Load_Value; 
+    bitset<1> WrtEnableRF = bitset<1> (0);
+    bitset<5> Rs = 0;
+    bitset<5> Rt = 0;
+    bitset<5> Rd = 0;
+    bitset<3> funct = 0 ;
+    bitset<5> R_d = 0; 
+    bitset<3> ALUOPTC=0; 
+    bitset<16> Immediate = bitset<16>(0);
+    bitset<32> SignExtImm = bitset<32> (0); 
+    bitset<6> OPCODE_temp;
+    bitset<6> OPCODE_NEW;
+    bitset<32> Store_Rd;
+    bitset<1> WriteMemEn=0;
+    int WER=0;
+    bitset<26> Address = 0;
 
     //bitset<32> SignExtImm = bitset<32> (0); //error debug
 
@@ -251,183 +248,183 @@ int main()
     INSMem myInsMem;
     DataMem myDataMem;
 
-    while (1) //each loop body corresponds to one clock cycle.
-	{
-    	cout <<  "PC value is "<< PC.to_ulong() << "\n";  
-
-    	/****** Instruction fetfch stage **********/  
-		Instruction = myInsMem.ReadMemory( PC.to_ulong() )	;
-		//cout <<  "Inst mem value is "<< Instruction << "\n";
-		conv_bit_to_string = Instruction.to_string<char,std::string::traits_type,std::string::allocator_type>();
-		OPCODE = bitset<6>(conv_bit_to_string.substr(0,6));
-		//cout << typeid(Instruction).name() << "\n";
-		if (OPCODE  ==  0b000000)
-		{
-            cout << "R-TYPE" << "\n";  
-			bitset<5> Rs = bitset<5>(conv_bit_to_string.substr(6,5));
-			bitset<5> Rt = bitset<5>(conv_bit_to_string.substr(11,5));
-			bitset<5> Rd = bitset<5>(conv_bit_to_string.substr(16,5));
-            bitset<6> funct = bitset<6>(conv_bit_to_string.substr(26,6)); 
-            cout << " Rs is " << Rs << " Rt is " << Rt << " Rd is "<< Rd << " funct is "<< funct<<"\n";
-            
-            myRF.ReadWrite(Rs, Rt, Rd, 0, 0); // Register addresses
-            ALUresult= myALU.ALUOperation(bitset<3>(funct.to_string().substr(3,3)), myRF.Rd1val,myRF.Rd2val);
-            cout<< ALUresult<<"\n "<< myRF.Rd1val<< "\n "<< myRF.Rd2val<<"\n ";
-            myRF.ReadWrite(0,0,Rd,ALUresult,1);
-
-
-
-		}
-		else if (OPCODE == 0b000010 | OPCODE == 0b111111)
-		{
-			cout << "J-TYPE" << "\n"; 
-			bitset<26> Address = bitset<26>(conv_bit_to_string.substr(6,26));
-			cout <<  " Address is "<< Address<<"\n";
-			if (OPCODE == 0b000010)
-			{
-
-				bitset<32> PC_J_4 = bitset<32> (PC.to_ulong() + 4);
-				bitset<32> PC_MSB_4 = bitset<32>(PC_J_4.to_string().substr(0,4)); // Theoretically correct
-				PC_MSB_4 = PC_MSB_4 << 28;
- 				
- 				bitset<32>Address_new = bitset<32>(Address.to_ulong());
- 				Address_new = Address_new << 2;
-
-				Address_new = Address_new | PC_MSB_4; 
-
-				PC = Address_new; 
-
-				cout << "\nPC is" << PC <<"\n";
-
-				continue;
-
-			}
-			else if (OPCODE == 0b111111)
-			{
-				cout <<  "Instructions complete \n";
-				break;
-			}
-		}
-			
-		else 
-		{
-			cout << "I-TYPE" << "\n"; 
-			bitset<5> Rs = bitset<5>(conv_bit_to_string.substr(6,5));
-			bitset<5> Rt = bitset<5>(conv_bit_to_string.substr(11,5));
-			bitset<16> Immediate = bitset<16>(conv_bit_to_string.substr(16,16));
-			bitset<32> SignExtImm = bitset<32> (0); 
-
-
-
-			cout << " Rs is " << Rs << " Rt is " << Rt << " Immediate is  "<< Immediate<<"\n";
-
-
-			if (OPCODE == 0b100011)
-			{
-				cout << "LOAD_INSTRUCTION" << "\n";
-
-				myRF.ReadWrite(Rs,0,0,0,0); // we are doing this to get Rd1val, WRONG
-				bitset<32>Immediateval = bitset<32>(Immediate.to_ulong()|0x00);
-				SignExtImm = bitset<32>(SignExtImm | Immediateval);	
-				if(Immediate.to_string().substr(0,1) == "1")
-				{
-					SignExtImm = (SignExtImm.to_ulong() | 0b11111111111111110000000000000000);
-
-				}
-					
-				ALUresult = myALU.ALUOperation(0b001,myRF.Rd1val,SignExtImm);
-
-
-				Dmem_Load_Value = myDataMem.MemoryAccess(ALUresult,0,1,0); // dont know
-
-				myRF.ReadWrite(0,0,Rt,Dmem_Load_Value,1);
-				cout<<"  Wrtdata\nThe Load parameteres \n";
-				cout<<"\n"<<ALUresult<<"\n"<<Dmem_Load_Value<<"\n"<<SignExtImm<<"\n";
-				//complete
-
-			}
-			else if (OPCODE == 0b101011)
-			{
-				cout << "STORE_INSTRUCTION" << "\n";
-
-				myRF.ReadWrite(Rs,Rt,0,0,0);
-
-				bitset<32>Immediateval = bitset<32>(Immediate.to_ulong()|0x00);
-
-				SignExtImm = bitset<32>(SignExtImm | Immediateval);	
-
-				if(Immediate.to_string().substr(0,1)=="1")
-				{
-					SignExtImm = (SignExtImm.to_ulong() | 0b11111111111111110000000000000000); 
-				}
-
-				ALUresult = myALU.ALUOperation(0b001,myRF.Rd1val,SignExtImm);
-
-
-				Dmem_Load_Value = myDataMem.MemoryAccess(ALUresult,myRF.Rd2val,0,1); // Dmem_Load_Value IS not present
-				cout<<"\n"<<ALUresult<<"\n"<<Dmem_Load_Value<<"\n"<<SignExtImm<<"\n";
-			} 
-			else if (OPCODE == 0b000100)
-			{
-				cout << "BEQ_INSTRUCTION" << "\n";
-
-				bitset<32> PC_I_4 = bitset<32> (PC.to_ulong() + 4);
-
-				myRF.ReadWrite(Rs,Rt,0,0,0);
-
-				if (myRF.Rd1val == myRF.Rd2val)
-				{
-					
-					bitset<32>Immediateval = bitset<32>(Immediate.to_ulong()|0x00);
-					SignExtImm = bitset<32>(SignExtImm | Immediateval);
-					if(Immediate.to_string().substr(0,1)=="1")
-					{
-						SignExtImm = (SignExtImm.to_ulong() | 0b11111111111111110000000000000000); 
-					}
-					
-					SignExtImm = SignExtImm << 2;
-					PC = PC_I_4 | SignExtImm;
-					continue;
-				}
-
-			}
-			else if (OPCODE == 0b001001) 
-			{
-				cout << "ADDIU_INSTRUCTION" << "\n";
-
-				myRF.ReadWrite(Rs, Rt, 0, 0, 0); // WRONG we do this to get Rd1val and RD2val
-
-				bitset<32>Immediateval = bitset<32>(Immediate.to_ulong()|0x00);
-				SignExtImm = bitset<32>(SignExtImm | Immediateval);
-				if(Immediate.to_string().substr(0,1)=="1")
-				{
-					SignExtImm = (SignExtImm.to_ulong() | 0b11111111111111110000000000000000); 
-				}
-					
-
-				ALUresult = myALU.ALUOperation(0b001,myRF.Rd1val,SignExtImm);
-
-				myRF.ReadWrite(0,0,Rt,ALUresult,1);  // What happens if we send zero here??WRONG PIPELINE
-				// Complete
-
-			}
-
-
-		}
-	 
-	
-    // At the end of each cycle, fill in the corresponding data into "dumpResults" function to output files.
-   //  dumpResults(pc, , , , , , );      
-    
-    	PC = bitset<32> (PC.to_ulong() + 4); 
-    	//cout<<"Hello";   
    
 
-    }
-	      myRF.OutputRF(); // dump RF; 
-          //cout<<"PRinting";
-          myDataMem.OutputDataMem(); // dump data mem
-      	  
-          return 0;
+    while (1) //each loop body corresponds to one clock cycle. PC.to_ulong() < 40
+	{
         
+        /***********     WRITE BACK STAGE    *********/
+       // myRF.ReadWrite(0, 0, R_d, ALUresult, WrtEnableRF);  // Rs=0 , Rd=0 not required in WB
+
+
+
+
+        //cout<< "                                                                      PC Value is "<< PC<<"\n";
+
+        //cout << "\n Write Back  Stage" << "\n";        
+        if(WER==1)
+        {
+          WrtEnableRF = 1;
+        }
+
+
+        
+        if ( OPCODE_NEW == 0b100011 )   
+        { 
+           //cout << " LOAD Instruction\n";
+           WriteMemEn = 0; 
+           Dmem_Load_Value = myDataMem.MemoryAccess(ALUresult,0,1,WriteMemEn);
+           myRF.ReadWrite(0, 0, R_d, Dmem_Load_Value, WrtEnableRF);
+           //cout <<"R_d is " << R_d << "                                                 Loaded value   " <<Dmem_Load_Value << "\n";
+           dumpResults(PC,R_d,Dmem_Load_Value,WrtEnableRF,0,0,0); //pc, addr, data,en       
+
+         }
+        else if (OPCODE_NEW == 0b101011)
+        {
+            //cout << " STORE Instruction\n";
+            WriteMemEn = 1;
+            Dmem_Load_Value = myDataMem.MemoryAccess(ALUresult,Store_Rd,0,WriteMemEn);
+            dumpResults(PC,0,0,0,ALUresult,Store_Rd, WriteMemEn); //pc, addr, data,en       
+            //cout <<"R_d is " << ALUresult << "                                               Storing value  " <<Store_Rd< "\n";
+        }
+        else if (OPCODE_NEW == 0b001001)
+        {
+        	myRF.ReadWrite(0, 0, R_d, ALUresult, WrtEnableRF);	
+        	dumpResults(PC,R_d,ALUresult,WrtEnableRF,0,0,0);
+        	// cout <<"R_d is " << R_d << "                                                 ADDIU instruction  " <<ALUresult << "\n";
+        }
+       else if(OPCODE_NEW != 0b101011 && OPCODE_NEW != 0b100011)
+        {
+           // cout << " OTHER than LOAD and STORE Instruction\n";
+            myRF.ReadWrite(0, 0, R_d, ALUresult, WrtEnableRF);          
+            dumpResults(PC,R_d,ALUresult,WrtEnableRF,0,0,0);
+            //cout <<"R_d is " << R_d << "                                                 R type stored  " <<ALUresult << "\n";
+        }
+        
+
+        /***********     READ REGISTERS AND EXECUTE STAGE    *********/
+         //cout << "\n ID/ RF / Ex stage" << "\n";
+        // For Read mode WrtEnable is 0
+        WrtEnableRF = 0;
+        WER = 0;
+        
+        
+        // Read the"Rs_2 is"<<  R gi"Rt_2 is "<<ster values 
+        //cout << "Rs_2 is"<< Rs << " Rt_2 is   "<< Rt<< "\n" ;
+        myRF.ReadWrite( Rs, Rt, 0, 0, WrtEnableRF); 
+        
+        if(myRF.Rd1val == myRF.Rd2val && OPCODE == 0b000100)
+        {
+             //cout<<"                                            Branch Operation Started"<<"\n";
+             bitset<18>Immediateval = bitset<18>(Immediate.to_ulong() << 2);
+            if(Immediate.to_string().substr(0,1) == "1")
+            {
+              SignExtImm = (Immediateval.to_ulong() | 0b11111111111111000000000000000000);
+            }
+            else
+            {
+              SignExtImm = (Immediateval.to_ulong() | 0b00000000000000000000000000000000);            
+            }
+              PC = bitset<32> (PC.to_ulong()+SignExtImm.to_ulong());
+              PC = PC.to_ulong() - 4;
+              //dumpResults(PC,0,0,0,0,0,0);
+              //cout<< "PC is value" << PC <<"\n";
+              //cout<< "Branch is" << SignExtImm <<"\n";
+              //exit(0);
+        }
+        else if (OPCODE == 0b000010)
+        {
+          
+            bitset<32> jump_inst = bitset<32>((PC.to_ulong()-4));  
+            bitset<4> offset =     bitset<4>(jump_inst.to_string().substr(0,3));
+            bitset<32> off = bitset<32>(offset.to_ulong()<<28);
+            bitset<32>Address_shift = bitset<32>(Address.to_ulong()<<2);
+            bitset<32>Address_new = bitset<32>(Address_shift|off);
+            PC = Address_new.to_ulong();
+            //dumpResults(PC,0,0,0,0,0,0);
+            //cout<< " jump PC "<< jump_inst<<"\n";
+            //cout<< "Address"<<Address_new<<"\n";
+            //cout<< "PC Value"<<PC<<"\n";
+            //exit(0);
+        
+        }
+        else
+        {
+            //cout<<"                                            No Branch Operation Started"<<"\n";
+            R_d = Rd;
+            if (OPCODE_temp != 0b000000)
+            {
+              R_d = Rt;
+              Store_Rd =myRF.Rd2val;
+              myRF.Rd2val = SignExtImm; 
+              ALUOPTC = 1;          
+            }
+            OPCODE_NEW = OPCODE_temp;
+            //cout << "Rs_2 value is"<< myRF.Rd1val << " Rt_2 value is/ Immediate "<< myRF.Rd2val<< "\n" ;
+            // Get the ALU result (is there  any ?) 
+            ALUresult= myALU.ALUOperation(ALUOPTC, myRF.Rd1val,myRF.Rd2val);
+            // Condition telling when to we can write to RF.   
+            if (ALUOPTC != 0)
+              {
+                 WER = 1;       
+              }      
+        }
+        /***********     INSTRUCTION FETCH STAGE    *********/
+        Instruction = myInsMem.ReadMemory( PC.to_ulong() )  ;
+        conv_bit_to_string = Instruction.to_string<char,std::string::traits_type,std::string::allocator_type>();
+        OPCODE = bitset<6>(conv_bit_to_string.substr(0,6));
+        OPCODE_temp = OPCODE;
+        //cout << "\n Instruction Fetch Stage" << "\n";
+        //cout<< "OPCODE" << OPCODE << "\n";
+        if (OPCODE  ==  0b000000)
+        {
+              //cout << "R-TYPE" << "\n";  
+              Rs = bitset<5>(conv_bit_to_string.substr(6,5));
+              Rt = bitset<5>(conv_bit_to_string.substr(11,5));
+              Rd = bitset<5>(conv_bit_to_string.substr(16,5));
+              funct = bitset<3>(conv_bit_to_string.substr(29,3)); 
+              ALUOPTC = bitset<3>(funct);
+             
+              //cout << " Rs is " << Rs << " Rt is " << Rt << " Rd is "<< Rd << " funct is "<< funct<<"\n";
+              //exit(0);
+        }
+         
+        else if(OPCODE  ==  0b000010 | OPCODE  ==  0b111111 )
+        {
+              //cout << "J- TYPE" << "\n";
+              if (OPCODE == 0b111111)
+              {
+                cout <<  "Instructions complete \n";
+                break;
+                
+              }
+              Address = bitset<26>(conv_bit_to_string.substr(6,26));
+              //cout <<  " Address is "<< Address<<"\n";
+        }
+
+        else 
+        {
+              
+              //cout << "I-TYPE" << "\n"; 
+              Rs = bitset<5>(conv_bit_to_string.substr(6,5));
+              Rt = bitset<5>(conv_bit_to_string.substr(11,5));
+              Immediate = bitset<16>(conv_bit_to_string.substr(16,16));
+              SignExtImm = bitset<32> (0); 
+              bitset<32>Immediateval = bitset<32>(Immediate.to_ulong()|0x00);
+              SignExtImm = bitset<32>(SignExtImm | Immediateval); 
+              if(Immediate.to_string().substr(0,1) == "1")
+                {
+                  SignExtImm = (SignExtImm.to_ulong() | 0b11111111111111110000000000000000);
+
+                }
+              ALUOPTC = bitset<3>(OPCODE.to_string().substr(3,3));               
+              //cout << " Rs is " << Rs << " Rt is " << Rt << " SignImmediate is  "<< SignExtImm<<"\n";     
+          }
+            /***********     UPDATING PC VALUE FOR EVER CYCLE   *********/
+               PC = bitset<32> (PC.to_ulong() + 4); 
+    }
+    /***********    DUMPING FINAL STATE OF  RF and DATA MEM    *********/
+	      myRF.OutputRF();   
+        myDataMem.OutputDataMem();       	  
+          return 0;       
 }
