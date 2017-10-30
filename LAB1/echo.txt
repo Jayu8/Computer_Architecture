@@ -1,6 +1,0 @@
-I-TYPE
- Rs is 00000 Rt is 00001 Immediate is  0000000000000000
-I-TYPE
- Rs is 00000 Rt is 00010 Immediate is  0000000000000100
-R-TYPE
- Rs is 00001 Rt is 00010 Rd is 00011 funct is 100001
